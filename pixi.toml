@@ -1,0 +1,41 @@
+[workspace]
+name = "chord-extractor-api"
+version = "0.1.0"
+description = "HTTP API to extract chords from audio files (S3 URL input)"
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "linux-64"]
+
+[dependencies]
+python = "3.11.*"
+ffmpeg = "*"
+libsndfile = "*"
+numpy = "<2"
+setuptools = "<81"
+wheel = "*"
+
+[pypi-dependencies]
+chord-extractor = "*"
+fastapi = "*"
+uvicorn = { version = "*", extras = ["standard"] }
+httpx = "*"
+soundfile = "*"
+pydantic = ">=2"
+
+[pypi-options]
+no-build-isolation = ["vamp"]
+
+[feature.dev.pypi-dependencies]
+pytest = "*"
+pytest-asyncio = "*"
+ruff = "*"
+
+[environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+
+[tasks]
+dev = "uvicorn app.main:app --reload --port 8000"
+start = "uvicorn app.main:app --host 0.0.0.0 --port 8000"
+test = "pytest"
+lint = "ruff check app tests"
+format = "ruff format app tests"
