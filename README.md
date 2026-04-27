@@ -1,12 +1,12 @@
 # chord-extractor-api
 
-HTTP API trích xuất chord từ file audio. Client upload audio lên S3, gửi presigned URL cho API; API tải về, chạy chord-extractor (Chordino Vamp plugin), trả về `{ duration, chords: [{chord, timestamp}] }`.
+HTTP API for extracting chords from audio files. Clients upload audio to S3, send a presigned URL to the API; the API downloads it, runs chord-extractor (Chordino Vamp plugin), and returns `{ duration, chords: [{chord, timestamp}] }`.
 
 ## Stack
 
-- Python 3.11 (constraint từ `chord-extractor 0.1.3`, không thể lên 3.12+)
+- Python 3.11 (pinned by `chord-extractor 0.1.3`, cannot move to 3.12+)
 - FastAPI + uvicorn
-- [`chord-extractor`](https://github.com/ohollo/chord-extractor) (wrap Chordino + NNLS Chroma Vamp plugin)
+- [`chord-extractor`](https://github.com/ohollo/chord-extractor) (wraps Chordino + NNLS Chroma Vamp plugins)
 - pixi (deps), Docker (deploy)
 
 ## API
@@ -34,20 +34,20 @@ Response 200:
 }
 ```
 
-Định dạng audio hỗ trợ: `mp3`, `wav`, `ogg`, `flac`, `m4a`, `webm`. Giới hạn 100MB/file.
+Supported audio formats: `mp3`, `wav`, `ogg`, `flac`, `m4a`, `webm`. Hard limit 100 MB per file.
 
 Error codes:
-- `413` — file > 100MB
-- `415` — định dạng không hỗ trợ
-- `422` — URL không hợp lệ
-- `502` — không tải được URL
-- `500` — extraction thất bại
+- `413` — file exceeds 100 MB
+- `415` — unsupported format
+- `422` — invalid URL
+- `502` — download failed
+- `500` — extraction failed
 
 ## Local dev
 
-### Khuyến nghị: chạy qua Docker
+### Recommended: run via Docker
 
-`chord-extractor` chỉ ship pre-compiled Chordino binary cho **Linux 64-bit**. Trên macOS sẽ thiếu plugin trừ khi cài thủ công, nên cách dễ nhất là dùng container:
+`chord-extractor` ships a pre-compiled Chordino binary only for **Linux 64-bit**. On macOS the plugin is missing unless installed manually, so the easiest path is the container:
 
 ```bash
 docker build -t chord-extractor-api .
@@ -55,20 +55,20 @@ docker run --rm -p 8000:8000 chord-extractor-api
 curl http://localhost:8000/health
 ```
 
-### Chạy native qua pixi (Linux hoặc macOS có cài Vamp plugin)
+### Native via pixi (Linux, or macOS with the Vamp plugin installed)
 
 ```bash
 pixi install
 pixi run dev          # uvicorn --reload, port 8000
 ```
 
-Trên macOS, để `chord-extractor` tìm thấy Chordino, cần cài plugin pack thủ công vào `~/Library/Audio/Plug-Ins/Vamp/`:
+On macOS, for `chord-extractor` to find Chordino, install the plugin pack manually into `~/Library/Audio/Plug-Ins/Vamp/`:
 
-1. Tải Chordino + NNLS Chroma từ https://code.soundsoftware.ac.uk/projects/nnls-chroma/files
-2. Copy `.dylib` vào `~/Library/Audio/Plug-Ins/Vamp/`
-3. Verify: chạy `pixi run python -c "import vamp; print(vamp.list_plugins())"` — phải thấy `nnls-chroma:chordino`
+1. Download Chordino + NNLS Chroma from https://code.soundsoftware.ac.uk/projects/nnls-chroma/files
+2. Copy the `.dylib` into `~/Library/Audio/Plug-Ins/Vamp/`
+3. Verify: run `pixi run python -c "import vamp; print(vamp.list_plugins())"` — `nnls-chroma:chordino` must appear
 
-Nếu lib chưa được cài, request `POST /extract` sẽ trả 500 với log message lỗi Vamp.
+If the plugin is not installed, `POST /extract` will return 500 with a Vamp error in the logs.
 
 ## Test
 
@@ -79,10 +79,10 @@ pixi run -e dev lint           # ruff check
 
 ## Deploy
 
-Build image và đẩy lên registry/PaaS bất kỳ (Fly.io, Railway, AWS ECS...). Image chạy uvicorn trên port `8000`. Đặt sau API gateway hoặc reverse proxy để xử lý auth + rate limiting.
+Build the image and push to any registry / PaaS (Fly.io, Railway, AWS ECS, etc.). The image runs uvicorn on port `8000`. Place it behind an API gateway or reverse proxy for auth and rate limiting.
 
 ## Notes
 
-- Extraction là CPU-bound, ~30-60s cho bài 4 phút. Nếu cần xử lý đồng thời nhiều request, scale horizontally hoặc chuyển sang job queue (Celery/Hatchet).
-- API không yêu cầu AWS auth; URL phải là presigned hoặc public HTTP.
-- Chord notation theo Chordino: `N` = no chord/silence, các chord dạng `C`, `Am`, `G7`, `Dm7`, `F#`, `Bb`...
+- Extraction is CPU-bound, ~30–60 s for a 4-minute song. To handle concurrent requests, scale horizontally or move to a job queue (Celery/Hatchet).
+- The API does not perform AWS authentication; the URL must be presigned or publicly fetchable over HTTP.
+- Chord notation follows Chordino: `N` = no chord / silence; chords look like `C`, `Am`, `G7`, `Dm7`, `F#`, `Bb`, etc.
