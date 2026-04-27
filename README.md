@@ -79,7 +79,21 @@ pixi run -e dev lint           # ruff check
 
 ## Deploy
 
-Build the image and push to any registry / PaaS (Fly.io, Railway, AWS ECS, etc.). The image runs uvicorn on port `8000`. Place it behind an API gateway or reverse proxy for auth and rate limiting.
+CI builds and pushes `ghcr.io/trancong12102/chord-extractor-api:latest` (workflow_dispatch on `.github/workflows/build-image.yml`). Production deploy uses `docker-compose.prod.yml` with a Cloudflare Tunnel sidecar for public ingress:
+
+```bash
+cp .env.prod.example .env.prod   # fill TUNNEL_TOKEN
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml logs -f api
+```
+
+The Cloudflare Tunnel must route a public hostname to `http://api:8000` (matches the `api` service name in compose). To roll a new image:
+
+```bash
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d   # recreates with new image
+```
 
 ## Notes
 
